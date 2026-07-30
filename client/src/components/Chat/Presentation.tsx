@@ -76,7 +76,7 @@ export default function Presentation({ children }: { children: React.ReactNode }
   }, [artifactsVisibility, artifacts, currentArtifactId]);
 
   return (
-    <DragDropWrapper className="relative flex w-full grow overflow-hidden" style={{ background: '#111827' }}>
+    <div className="relative flex w-full grow overflow-hidden" style={{ background: '#111827' }}>
       {/* Neon glow blobs */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
         {/* Top-right pink blob */}
@@ -115,11 +115,13 @@ export default function Presentation({ children }: { children: React.ReactNode }
           opacity: 0.25, filter: 'blur(55px)',
         }} />
       </div>
-      <SidePanelGroup artifacts={artifactsElement}>
-        <main className="flex h-full flex-col overflow-y-auto" role="main">
-          {children}
-        </main>
-      </SidePanelGroup>
-    </DragDropWrapper>
+      <DragDropWrapper className="dark relative z-10 flex w-full grow overflow-hidden bg-transparent">
+        <SidePanelGroup artifacts={artifactsElement}>
+          <main className="flex h-full flex-col overflow-y-auto" role="main">
+            {children}
+          </main>
+        </SidePanelGroup>
+      </DragDropWrapper>
+    </div>
   );
 }
