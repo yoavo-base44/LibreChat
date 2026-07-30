@@ -1,0 +1,144 @@
+services:
+  mongodb:
+    container_name: chat-mongodb
+    image: mongo:8.0.20
+    restart: always
+    volumes:
+      - mongo_data:/data/db
+    command: mongod --noauth
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  meilisearch:
+    container_name: chat-meilisearch
+    image: getmeili/meilisearch:v1.35.1
+    restart: always
+    environment:
+      - MEILI_HOST=http://meilisearch:7700
+      - MEILI_NO_ANALYTICS=true
+      - MEILI_MASTER_KEY=DrhYf7zENyR6AlUCKmnz0eYASOQdl6zxH7s7MKFSfFCt
+    volumes:
+      - meili_data:/meili_data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:7700/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  vectordb:
+    container_name: vectordb
+    image: pgvector/pgvector:0.8.0-pg15-trixie
+    environment:
+      POSTGRES_DB: mydatabase
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+    restart: always
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myuser -d mydatabase"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  npm-install:
+    image: node:24.16.0-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - node_modules_api:/app/api/node_modules
+      - node_modules_client:/app/client/node_modules
+      - node_modules_dp:/app/packages/data-provider/node_modules
+      - node_modules_ds:/app/packages/data-schemas/node_modules
+      - node_modules_api_pkg:/app/packages/api/node_modules
+      - node_modules_client_pkg:/app/packages/client/node_modules
+    command: >
+      sh -c "
+        if [ ! -f /app/node_modules/.package-lock.json ]; then
+          echo 'Installing dependencies...' &&
+          npm ci --no-audit;
+        else
+          echo 'Dependencies already installed, skipping npm ci';
+        fi &&
+        echo 'Building packages with turbo...' &&
+        npx turbo run build --filter='!@librechat/frontend'
+      "
+
+  app:
+    image: node:24.16.0-alpine
+    working_dir: /app
+    ports:
+      - "3000:3090"
+    depends_on:
+      npm-install:
+        condition: service_completed_successfully
+      mongodb:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - node_modules_api:/app/api/node_modules
+      - node_modules_client:/app/client/node_modules
+      - node_modules_dp:/app/packages/data-provider/node_modules
+      - node_modules_ds:/app/packages/data-schemas/node_modules
+      - node_modules_api_pkg:/app/packages/api/node_modules
+      - node_modules_client_pkg:/app/packages/client/node_modules
+      - ./images:/app/client/public/images
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    environment:
+      - NODE_ENV=development
+      - HOST=0.0.0.0
+      - PORT=3080
+      - BACKEND_HOST=127.0.0.1
+      - MONGO_URI=mongodb://mongodb:27017/LibreChat
+      - MEILI_HOST=http://meilisearch:7700
+      - MEILI_MASTER_KEY=DrhYf7zENyR6AlUCKmnz0eYASOQdl6zxH7s7MKFSfFCt
+      - DOMAIN_CLIENT=http://localhost:3000
+      - DOMAIN_SERVER=http://localhost:3080
+      - NO_INDEX=true
+      - ALLOW_REGISTRATION=true
+      - ALLOW_SOCIAL_LOGIN=false
+      - ALLOW_SOCIAL_REGISTRATION=false
+      - CREDS_KEY=f34be427ebb29de8d88c107a71546019685ed8b241d8f2ed00c3df97ad2566f0
+      - CREDS_IV=e2341419ec3dd3d19b13a1a87fafcbfb
+      - JWT_SECRET=16f8c0ef4a5d391b26034086c628469d3f9f497f08163ab9b40137092f2909ef
+      - JWT_REFRESH_SECRET=eaa5191f2914e30b9387fd84e254e4ba6fc51b4654968a9b0803b456a54b8418
+      - OPENAI_API_KEY=user_provided
+      - ANTHROPIC_API_KEY=user_provided
+      - GOOGLE_KEY=user_provided
+      - SEARCH=true
+      - DEBUG_LOGGING=true
+      - CONSOLE_JSON=false
+      - VITE_ALLOWED_HOSTS=all
+    env_file:
+      - path: /run/base44/app.env
+        required: false
+    command: >
+      sh -c "
+        echo 'Starting backend...' &&
+        node api/server/index.js &
+        echo 'Waiting for backend to be ready...' &&
+        sleep 5 &&
+        echo 'Starting frontend dev server...' &&
+        cd client && npx vite --host 0.0.0.0 --port 3090
+      "
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
+  meili_data:
+  pgdata:
+  node_modules:
+  node_modules_api:
+  node_modules_client:
+  node_modules_dp:
+  node_modules_ds:
+  node_modules_api_pkg:
+  node_modules_client_pkg:
