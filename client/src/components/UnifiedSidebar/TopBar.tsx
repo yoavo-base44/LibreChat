@@ -170,7 +170,7 @@ function TopBar({ links }: { links: NavLink[] }) {
   return (
     <div ref={containerRef} className="relative">
       {/* Top navigation bar */}
-      <div className="flex h-12 w-full items-center justify-between border-b border-border-light bg-surface-primary-alt px-3">
+      <div className="flex h-12 w-full items-center justify-between px-3" style={{ background: '#111827', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         {/* Left: logo area + new chat */}
         <div className="flex items-center gap-2">
           <img src="/assets/logo.svg" alt="Base44" className="h-6 w-auto" />

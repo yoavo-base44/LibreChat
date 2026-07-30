@@ -76,7 +76,45 @@ export default function Presentation({ children }: { children: React.ReactNode }
   }, [artifactsVisibility, artifacts, currentArtifactId]);
 
   return (
-    <DragDropWrapper className="relative flex w-full grow overflow-hidden bg-presentation">
+    <DragDropWrapper className="relative flex w-full grow overflow-hidden" style={{ background: '#111827' }}>
+      {/* Neon glow blobs */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+        {/* Top-right pink blob */}
+        <div style={{
+          position: 'absolute', top: '-10%', right: '-5%',
+          width: '45%', height: '50%',
+          background: 'radial-gradient(circle, #EC4899 0%, transparent 70%)',
+          opacity: 0.35, filter: 'blur(60px)',
+        }} />
+        {/* Center-left blue blob */}
+        <div style={{
+          position: 'absolute', top: '15%', left: '5%',
+          width: '50%', height: '55%',
+          background: 'radial-gradient(circle, #3B82F6 0%, transparent 70%)',
+          opacity: 0.4, filter: 'blur(70px)',
+        }} />
+        {/* Bottom-left lime blob */}
+        <div style={{
+          position: 'absolute', bottom: '5%', left: '-5%',
+          width: '40%', height: '40%',
+          background: 'radial-gradient(circle, #84CC16 0%, transparent 70%)',
+          opacity: 0.3, filter: 'blur(60px)',
+        }} />
+        {/* Bottom-center blue blob */}
+        <div style={{
+          position: 'absolute', bottom: '-5%', left: '30%',
+          width: '45%', height: '45%',
+          background: 'radial-gradient(circle, #2563EB 0%, transparent 70%)',
+          opacity: 0.35, filter: 'blur(65px)',
+        }} />
+        {/* Mid-right pink blob */}
+        <div style={{
+          position: 'absolute', bottom: '20%', right: '-5%',
+          width: '35%', height: '40%',
+          background: 'radial-gradient(circle, #DB2777 0%, transparent 70%)',
+          opacity: 0.25, filter: 'blur(55px)',
+        }} />
+      </div>
       <SidePanelGroup artifacts={artifactsElement}>
         <main className="flex h-full flex-col overflow-y-auto" role="main">
           {children}
