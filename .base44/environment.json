@@ -1,0 +1,23 @@
+{
+  "previewPort": 3000,
+  "healthPath": "/",
+  "startCommand": "docker compose -f docker-compose.base44.yml up -d",
+  "secrets": [
+    {
+      "name": "OPENAI_API_KEY",
+      "description": "OpenAI API key from https://platform.openai.com/api-keys",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "ANTHROPIC_API_KEY",
+      "description": "Anthropic API key from https://console.anthropic.com/settings/keys",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "GOOGLE_KEY",
+      "description": "Google Gemini API key from https://aistudio.google.com/apikey",
+      "requiredAtBoot": false
+    }
+  ],
+  "verifiedAtCommit": "5b28140c1647b0cd74dc738a744ffeb3aedde07e"
+}
