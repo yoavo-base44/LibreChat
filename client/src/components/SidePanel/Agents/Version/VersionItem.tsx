@@ -200,7 +200,7 @@ export default function VersionItem({
                 selection={{
                   selectHandler: () => onRestore(index),
                   selectClasses:
-                    'bg-green-600 hover:bg-green-700 dark:hover:bg-green-700 text-white',
+                    'bg-purple-600 hover:bg-purple-700 dark:hover:bg-purple-700 text-white',
                   selectText: localize('com_ui_agent_version_restore'),
                 }}
               />

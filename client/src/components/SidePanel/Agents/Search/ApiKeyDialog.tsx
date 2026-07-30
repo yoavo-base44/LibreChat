@@ -273,7 +273,7 @@ export default function ApiKeyDialog({
         }
         selection={{
           selectHandler: handleSubmit(onSubmit),
-          selectClasses: 'bg-green-500 hover:bg-green-600 text-white',
+          selectClasses: 'bg-purple-600 hover:bg-purple-700 text-white',
           selectText: localize('com_ui_save'),
         }}
         buttons={
