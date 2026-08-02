@@ -1,0 +1,143 @@
+services:
+  mongodb:
+    image: mongo:8.0
+    restart: always
+    volumes:
+      - mongo-data:/data/db
+    command: mongod --noauth
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.35.1
+    restart: always
+    environment:
+      - MEILI_NO_ANALYTICS=true
+      - MEILI_MASTER_KEY=devMasterKey123
+    volumes:
+      - meili-data:/meili_data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:7700/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  setup:
+    image: node:24-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - client_node_modules:/app/client/node_modules
+      - api_node_modules:/app/api/node_modules
+      - dp_node_modules:/app/packages/data-provider/node_modules
+      - ds_node_modules:/app/packages/data-schemas/node_modules
+      - pa_node_modules:/app/packages/api/node_modules
+      - pc_node_modules:/app/packages/client/node_modules
+    command: >
+      sh -c "
+        echo '=== Installing dependencies ===' &&
+        npm ci --no-audit --ignore-scripts 2>&1 | tail -5 &&
+        echo '=== Building packages ===' &&
+        npx turbo run build --filter='!@librechat/frontend' 2>&1 | tail -20 &&
+        echo '=== Setup complete ==='
+      "
+    environment:
+      - NODE_OPTIONS=--max-old-space-size=4096
+
+  backend:
+    image: node:24-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - client_node_modules:/app/client/node_modules
+      - api_node_modules:/app/api/node_modules
+      - dp_node_modules:/app/packages/data-provider/node_modules
+      - ds_node_modules:/app/packages/data-schemas/node_modules
+      - pa_node_modules:/app/packages/api/node_modules
+      - pc_node_modules:/app/packages/client/node_modules
+    ports:
+      - "3080:3080"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+      setup:
+        condition: service_completed_successfully
+    environment:
+      - NODE_ENV=development
+      - HOST=0.0.0.0
+      - PORT=3080
+      - MONGO_URI=mongodb://mongodb:27017/LibreChat
+      - MEILI_HOST=http://meilisearch:7700
+      - MEILI_MASTER_KEY=devMasterKey123
+      - DOMAIN_CLIENT=https://3000-${BASE44_PUBLIC_HOST_SUFFIX}
+      - DOMAIN_SERVER=https://3000-${BASE44_PUBLIC_HOST_SUFFIX}
+      - NO_INDEX=true
+      - ALLOW_EMAIL_LOGIN=true
+      - ALLOW_REGISTRATION=true
+      - ALLOW_UNVERIFIED_EMAIL_LOGIN=true
+      - ALLOW_SOCIAL_LOGIN=false
+      - ALLOW_SOCIAL_REGISTRATION=false
+      - SESSION_EXPIRY=900000
+      - REFRESH_TOKEN_EXPIRY=604800000
+      - JWT_SECRET=dev_jwt_secret_change_me_in_production_1234567890
+      - JWT_REFRESH_SECRET=dev_jwt_refresh_secret_change_me_in_production_0987654321
+      - CREDS_KEY=f34be427ebb29de8d88c107a71546019685ed8b241d8f2ed00c3df97ad2566f0
+      - CREDS_IV=e2341419ec3dd3d19b13a1a87fafcbfb
+      - DEBUG_LOGGING=true
+      - SEARCH=true
+      - OPENAI_API_KEY=user_provided
+      - ANTHROPIC_API_KEY=user_provided
+      - GOOGLE_KEY=user_provided
+      - SESSION_COOKIE_SECURE=false
+    command: >
+      sh -c "npx nodemon api/server/index.js"
+    restart: unless-stopped
+
+  frontend:
+    image: node:24-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - client_node_modules:/app/client/node_modules
+      - api_node_modules:/app/api/node_modules
+      - dp_node_modules:/app/packages/data-provider/node_modules
+      - ds_node_modules:/app/packages/data-schemas/node_modules
+      - pa_node_modules:/app/packages/api/node_modules
+      - pc_node_modules:/app/packages/client/node_modules
+    ports:
+      - "3000:3090"
+    depends_on:
+      backend:
+        condition: service_started
+      setup:
+        condition: service_completed_successfully
+    environment:
+      - NODE_ENV=development
+      - HOST=backend
+      - PORT=3090
+      - BACKEND_PORT=3080
+      - VITE_ALLOWED_HOSTS=3000-${BASE44_PUBLIC_HOST_SUFFIX}
+      - DOMAIN_CLIENT=https://3000-${BASE44_PUBLIC_HOST_SUFFIX}
+      - DOMAIN_SERVER=https://3000-${BASE44_PUBLIC_HOST_SUFFIX}
+    command: >
+      sh -c "cd /app/client && /app/node_modules/.bin/vite --host 0.0.0.0 --port 3090"
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
+  meili-data:
+  node_modules:
+  client_node_modules:
+  api_node_modules:
+  dp_node_modules:
+  ds_node_modules:
+  pa_node_modules:
+  pc_node_modules:
