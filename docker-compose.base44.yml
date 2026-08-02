@@ -1,0 +1,114 @@
+services:
+  mongodb:
+    image: mongo:8.0
+    restart: always
+    volumes:
+      - mongo_data:/data/db
+    command: mongod --noauth
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.35.1
+    restart: always
+    environment:
+      - MEILI_NO_ANALYTICS=true
+      - MEILI_MASTER_KEY=devMasterKey123456
+    volumes:
+      - meili_data:/meili_data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:7700/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  setup:
+    image: node:22
+    working_dir: /app
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+    command: >
+      bash -c "
+        echo '=== Installing dependencies ===' &&
+        npm install --ignore-scripts 2>&1 | tail -5 &&
+        echo '=== Building workspace packages ===' &&
+        npm run build:packages 2>&1 | tail -20 &&
+        echo '=== Creating client dist placeholder ===' &&
+        mkdir -p client/dist &&
+        echo '<!DOCTYPE html><html><head><title>LibreChat</title></head><body>Dev</body></html>' > client/dist/index.html &&
+        echo '=== Setup complete ==='
+      "
+
+  app:
+    image: node:22
+    working_dir: /app
+    ports:
+      - "3000:3090"
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3080
+      - NODE_ENV=development
+      - MONGO_URI=mongodb://mongodb:27017/LibreChat
+      - MEILI_HOST=http://meilisearch:7700
+      - MEILI_MASTER_KEY=devMasterKey123456
+      - SEARCH=true
+      - NO_INDEX=true
+      - ALLOW_EMAIL_LOGIN=true
+      - ALLOW_REGISTRATION=true
+      - ALLOW_UNVERIFIED_EMAIL_LOGIN=true
+      - ALLOW_SOCIAL_LOGIN=false
+      - ALLOW_SOCIAL_REGISTRATION=false
+      - SESSION_EXPIRY=900000
+      - REFRESH_TOKEN_EXPIRY=604800000
+      - JWT_SECRET=dev_jwt_secret_key_for_local_development_only_1234567890
+      - JWT_REFRESH_SECRET=dev_jwt_refresh_secret_for_local_development_only_0987654321
+      - CREDS_KEY=f34be427ebb29de8d88c107a71546019685ed8b241d8f2ed00c3df97ad2566f0
+      - CREDS_IV=e2341419ec3dd3d19b13a1a87fafcbfb
+      - DOMAIN_CLIENT=https://3000-${BASE44_PUBLIC_HOST_SUFFIX}
+      - DOMAIN_SERVER=https://3000-${BASE44_PUBLIC_HOST_SUFFIX}
+      - OPENAI_API_KEY=user_provided
+      - ANTHROPIC_API_KEY=user_provided
+      - GOOGLE_KEY=user_provided
+      - ASSISTANTS_API_KEY=user_provided
+      - DEBUG_LOGGING=true
+      - DEBUG_CONSOLE=false
+      - VITE_ALLOWED_HOSTS=3000-${BASE44_PUBLIC_HOST_SUFFIX}
+    env_file:
+      - /run/base44/app.env
+    command: >
+      bash -c "
+        node api/server/index.js &
+        API_PID=$$!
+        echo 'Waiting for API to start...'
+        until curl -sf http://localhost:3080/health > /dev/null 2>&1; do sleep 2; done
+        echo 'API is ready, starting Vite dev server...'
+        cd client && npx vite --host 0.0.0.0 --port 3090 &
+        VITE_PID=$$!
+        wait $$API_PID $$VITE_PID
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3090/"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 120s
+
+volumes:
+  mongo_data:
+  meili_data:
+  node_modules:
