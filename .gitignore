@@ -183,3 +183,8 @@ hive-mind-prompt-*.txt
 CLAUDE.md
 .gsd
 codedb.snapshot
+
+# Base44 dev environment - allow tracking
+!docker-compose.base44.yml
+!.base44/
+!.base44/environment.json
