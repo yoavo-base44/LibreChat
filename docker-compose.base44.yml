@@ -1,0 +1,128 @@
+services:
+  mongodb:
+    image: mongo:8.0
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    command: mongod --noauth
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.35.1
+    restart: unless-stopped
+    environment:
+      - MEILI_NO_ANALYTICS=true
+      - MEILI_MASTER_KEY=masterKey123456789012345678901234
+    volumes:
+      - meili_data:/meili_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: node:24
+    working_dir: /app
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - nm_api:/app/api/node_modules
+      - nm_client:/app/client/node_modules
+      - nm_dp:/app/packages/data-provider/node_modules
+      - nm_ds:/app/packages/data-schemas/node_modules
+      - nm_pa:/app/packages/api/node_modules
+      - nm_pc:/app/packages/client/node_modules
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+      setup:
+        condition: service_completed_successfully
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3080
+      - NODE_ENV=development
+      - MONGO_URI=mongodb://mongodb:27017/LibreChat
+      - MEILI_HOST=http://meilisearch:7700
+      - MEILI_MASTER_KEY=masterKey123456789012345678901234
+      - NO_INDEX=true
+      - DOMAIN_CLIENT=http://localhost:3090
+      - DOMAIN_SERVER=http://localhost:3080
+      - ALLOW_REGISTRATION=true
+      - ALLOW_SOCIAL_LOGIN=false
+      - CREDS_KEY=f34be427ebb29de8d88c107a71546019685ed8b241d8f2ed00c3df97ad2566f0
+      - CREDS_IV=e2341419ec3dd3d19b13a1a87fafcbfb
+      - JWT_SECRET=16f8c0ef4a5d391b26034086c628469d3f9f497f08163ab9b40137092f2909ef
+      - JWT_REFRESH_SECRET=eaa5191f2914e30b9387fd84e254e4ba6fc51b4654968a9b0803b456a54b8418
+      - SESSION_EXPIRY=900000
+      - REFRESH_TOKEN_EXPIRY=604800000
+      - SEARCH=true
+      - OPENAI_API_KEY=user_provided
+      - ANTHROPIC_API_KEY=user_provided
+      - GOOGLE_KEY=user_provided
+    restart: unless-stopped
+    command: npx nodemon api/server/index.js
+
+  client:
+    image: node:24
+    working_dir: /app
+    ports:
+      - "3000:3090"
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - nm_api:/app/api/node_modules
+      - nm_client:/app/client/node_modules
+      - nm_dp:/app/packages/data-provider/node_modules
+      - nm_ds:/app/packages/data-schemas/node_modules
+      - nm_pa:/app/packages/api/node_modules
+      - nm_pc:/app/packages/client/node_modules
+    depends_on:
+      api:
+        condition: service_started
+      setup:
+        condition: service_completed_successfully
+    environment:
+      - HOST=0.0.0.0
+      - NODE_ENV=development
+      - HOST=0.0.0.0
+      - BACKEND_HOST=api
+      - BACKEND_PORT=3080
+      - VITE_ALLOWED_HOSTS=all
+      - DOMAIN_CLIENT=http://localhost:3090
+      - DOMAIN_SERVER=http://api:3080
+    restart: unless-stopped
+    command: >
+      sh -c "cd client && npx vite --host 0.0.0.0 --port 3090"
+
+  setup:
+    image: node:24
+    working_dir: /app
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - nm_api:/app/api/node_modules
+      - nm_client:/app/client/node_modules
+      - nm_dp:/app/packages/data-provider/node_modules
+      - nm_ds:/app/packages/data-schemas/node_modules
+      - nm_pa:/app/packages/api/node_modules
+      - nm_pc:/app/packages/client/node_modules
+    command: >
+      sh -c "npm install && npm run build:packages"
+
+volumes:
+  mongo_data:
+  meili_data:
+  node_modules:
+  nm_api:
+  nm_client:
+  nm_dp:
+  nm_ds:
+  nm_pa:
+  nm_pc:
