@@ -31,9 +31,8 @@ const NODE_POLYFILL_SHIMS: Record<string, string> = {
 
 // https://vitejs.dev/config/
 const backendPort = (process.env.BACKEND_PORT && Number(process.env.BACKEND_PORT)) || 3080;
-const backendURL = process.env.HOST
-  ? `http://${process.env.HOST}:${backendPort}`
-  : `http://localhost:${backendPort}`;
+const backendHost = process.env.BACKEND_HOST || process.env.HOST || 'localhost';
+const backendURL = `http://${backendHost}:${backendPort}`;
 const buildSourceMap = process.env.NODE_ENV === 'development';
 const QUERY_DEVTOOLS_CHUNK_MODULES = [
   '@tanstack/react-query-devtools',
@@ -47,7 +46,9 @@ export default defineConfig(({ command }) => ({
   base: '',
   server: {
     allowedHosts:
-      (process.env.VITE_ALLOWED_HOSTS && process.env.VITE_ALLOWED_HOSTS.split(',')) || [],
+      process.env.VITE_ALLOWED_HOSTS === 'all' || process.env.VITE_ALLOWED_HOSTS === 'true'
+        ? true
+        : (process.env.VITE_ALLOWED_HOSTS && process.env.VITE_ALLOWED_HOSTS.split(',')) || [],
     host: process.env.HOST || 'localhost',
     port: (process.env.PORT && Number(process.env.PORT)) || 3090,
     strictPort: false,
