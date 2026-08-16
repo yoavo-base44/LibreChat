@@ -205,5 +205,9 @@
       "admin/",
       "packages/"
     ]
+  },
+  "dependencies": {
+    "@react-spring/web": "^10.1.2",
+    "winston-daily-rotate-file": "^5.0.0"
   }
 }
